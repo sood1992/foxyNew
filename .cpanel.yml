@@ -2,6 +2,9 @@
 deployment:
   tasks:
     - /bin/cp -R dist/* /home/neofoxme/public_html/foxy2/
-    - /bin/cp -R api /home/neofoxme/public_html/foxy2/
+    - /bin/cp api/*.php /home/neofoxme/public_html/foxy2/api/
+    - /bin/cp api/.htaccess /home/neofoxme/public_html/foxy2/api/
+    - /bin/cp -R api/routes /home/neofoxme/public_html/foxy2/api/
+    - /bin/cp -R api/utils /home/neofoxme/public_html/foxy2/api/
     - /bin/chmod -R 755 /home/neofoxme/public_html/foxy2
     - /bin/chmod -R 777 /home/neofoxme/public_html/foxy2/api/data
