@@ -1,4 +1,4 @@
 ---
 deployment:
-    tasks:
-        - /bin/cp -R dist/* /home/neofoxme/public_html/foxy2/
+  tasks:
+    - /bin/cp -R dist/* /home/neofoxme/public_html/foxy2/
