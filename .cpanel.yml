@@ -1,6 +1,4 @@
 ---
 deployment:
-  tasks:
-    - /bin/cp -R dist/* /home/neofoxme/public_html/foxy2/
-    - /bin/cp -R api/routes /home/neofoxme/public_html/foxy2/api/
-    - /bin/cp -R api/utils /home/neofoxme/public_html/foxy2/api/
+    tasks:
+        - /bin/cp -R dist/* /home/neofoxme/public_html/foxy2/
