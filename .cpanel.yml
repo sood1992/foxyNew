@@ -1,0 +1,16 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/neofoxme/public_html/foxy
+    # Install Node.js dependencies
+    - /bin/cp -R * $DEPLOYPATH
+    - cd $DEPLOYPATH && npm install --production=false
+    # Build the React application
+    - cd $DEPLOYPATH && npm run build
+    # Move built files to root and clean up
+    - /bin/cp -R $DEPLOYPATH/dist/* $DEPLOYPATH/
+    # Copy API folder
+    - /bin/cp -R $DEPLOYPATH/api $DEPLOYPATH/
+    # Set permissions
+    - chmod -R 755 $DEPLOYPATH
+    - chmod -R 777 $DEPLOYPATH/api/data
