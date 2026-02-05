@@ -13,7 +13,8 @@ import {
   Clock,
   X,
   Check,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isWithinInterval, startOfDay, addDays } from 'date-fns'
 
@@ -373,7 +374,7 @@ function ReservationModal({ assets, reservations, selectedDate, onClose, onSave 
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [form, setForm] = useState({
-    asset_id: '',
+    asset_ids: [],
     reserved_by: '',
     start_date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
     end_date: selectedDate ? format(addDays(selectedDate, 1), 'yyyy-MM-dd') : format(addDays(new Date(), 1), 'yyyy-MM-dd'),
@@ -388,25 +389,37 @@ function ReservationModal({ assets, reservations, selectedDate, onClose, onSave 
     )
   )
 
-  const checkConflict = () => {
-    if (!form.asset_id || !form.start_date || !form.end_date) return false
+  const toggleAsset = (assetId) => {
+    setForm(prev => ({
+      ...prev,
+      asset_ids: prev.asset_ids.includes(assetId)
+        ? prev.asset_ids.filter(id => id !== assetId)
+        : [...prev.asset_ids, assetId]
+    }))
+  }
+
+  const checkConflicts = () => {
+    if (form.asset_ids.length === 0 || !form.start_date || !form.end_date) return []
     const start = parseISO(form.start_date)
     const end = parseISO(form.end_date)
 
-    return reservations.some(res => {
-      if (res.asset_id !== form.asset_id || res.status === 'cancelled') return false
-      const resStart = parseISO(res.start_date)
-      const resEnd = parseISO(res.end_date)
-      return (start <= resEnd && end >= resStart)
+    return form.asset_ids.filter(assetId => {
+      return reservations.some(res => {
+        if (res.asset_id !== assetId || res.status === 'cancelled') return false
+        const resStart = parseISO(res.start_date)
+        const resEnd = parseISO(res.end_date)
+        return (start <= resEnd && end >= resStart)
+      })
     })
   }
 
-  const hasConflict = checkConflict()
+  const conflictingAssets = checkConflicts()
+  const hasConflict = conflictingAssets.length > 0
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.asset_id) {
-      toast.error('Please select equipment')
+    if (form.asset_ids.length === 0) {
+      toast.error('Please select at least one equipment')
       return
     }
     if (!form.reserved_by.trim()) {
@@ -414,14 +427,23 @@ function ReservationModal({ assets, reservations, selectedDate, onClose, onSave 
       return
     }
     if (hasConflict) {
-      toast.error('This equipment is already reserved for these dates')
+      toast.error('Some equipment is already reserved for these dates')
       return
     }
 
     setSaving(true)
     try {
-      await assetApi.createReservation(form)
-      toast.success('Reservation created successfully')
+      // Create reservation for each asset
+      for (const asset_id of form.asset_ids) {
+        await assetApi.createReservation({
+          asset_id,
+          reserved_by: form.reserved_by,
+          start_date: form.start_date,
+          end_date: form.end_date,
+          purpose: form.purpose
+        })
+      }
+      toast.success(`${form.asset_ids.length} reservation${form.asset_ids.length !== 1 ? 's' : ''} created successfully`)
       onSave()
     } catch (error) {
       toast.error(error.message || 'Failed to create reservation')
@@ -444,19 +466,52 @@ function ReservationModal({ assets, reservations, selectedDate, onClose, onSave 
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Equipment *</label>
-            <select
-              value={form.asset_id}
-              onChange={(e) => setForm({ ...form, asset_id: e.target.value })}
-              className="input-field"
-            >
-              <option value="">Select equipment...</option>
-              {availableAssets.map(asset => (
-                <option key={asset.asset_id} value={asset.asset_id}>
-                  {asset.asset_name} ({asset.asset_id})
-                </option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Equipment * ({form.asset_ids.length} selected)
+            </label>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search equipment..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-field pl-10 text-sm"
+              />
+            </div>
+            <div className="border border-neofox-gray rounded-lg max-h-48 overflow-y-auto">
+              {availableAssets.length > 0 ? (
+                availableAssets.map(asset => {
+                  const isConflicting = conflictingAssets.includes(asset.asset_id)
+                  return (
+                    <label
+                      key={asset.asset_id}
+                      className={`flex items-center gap-3 p-3 hover:bg-neofox-gray cursor-pointer border-b border-neofox-gray last:border-0 ${
+                        isConflicting ? 'bg-red-500/10' : ''
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.asset_ids.includes(asset.asset_id)}
+                        onChange={() => toggleAsset(asset.asset_id)}
+                        className="w-4 h-4 rounded border-neofox-gray text-neofox-yellow focus:ring-neofox-yellow"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{asset.asset_name}</p>
+                        <p className="text-xs text-gray-500">{asset.asset_id} • {asset.category}</p>
+                      </div>
+                      {isConflicting && (
+                        <span className="text-xs text-red-400">Conflict</span>
+                      )}
+                    </label>
+                  )
+                })
+              ) : (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No available equipment found
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
@@ -495,7 +550,9 @@ function ReservationModal({ assets, reservations, selectedDate, onClose, onSave 
           {hasConflict && (
             <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
               <AlertCircle className="w-4 h-4" />
-              This equipment is already reserved for these dates
+              {conflictingAssets.length === 1
+                ? 'One equipment is already reserved for these dates'
+                : `${conflictingAssets.length} equipment items are already reserved for these dates`}
             </div>
           )}
 
@@ -516,7 +573,7 @@ function ReservationModal({ assets, reservations, selectedDate, onClose, onSave 
             </button>
             <button
               type="submit"
-              disabled={saving || hasConflict}
+              disabled={saving || hasConflict || form.asset_ids.length === 0}
               className="btn-primary flex items-center gap-2"
             >
               {saving ? (
@@ -527,7 +584,7 @@ function ReservationModal({ assets, reservations, selectedDate, onClose, onSave 
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  Create Reservation
+                  Create Reservation{form.asset_ids.length > 0 ? ` (${form.asset_ids.length})` : ''}
                 </>
               )}
             </button>

@@ -148,7 +148,7 @@ export default function Kits() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => navigate(`/checkout?kit=${kit.id}`)}
+                        onClick={() => navigate(`/crew-checkout?kit=${kit.id}`)}
                         disabled={!allAvailable}
                         className={`btn-primary text-sm ${!allAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
